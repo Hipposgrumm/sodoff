@@ -291,7 +291,7 @@ public class DBContext : DbContext {
         builder.Entity<Group>().HasData(
             new Model.Group {
                 Id = 1,
-                GroupID = new Guid("db0aa225-2f0e-424c-83a7-73783fe63fef"),
+                GroupID = new Guid("8e68214a-c801-4759-8461-d01f28484134"),
                 Name = "Dragons",
                 Color = "234,57,23",
                 Logo = "RS_DATA/Content/PlayerData/EMD/IcoEMDTeamDragons.png",

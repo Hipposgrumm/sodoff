@@ -76,7 +76,7 @@ public class GameDataService {
     public GameDataSummary GetDailyGameData(Viking viking, int gameId, bool isMultiplayer, int difficulty, int gameLevel, string key, int count, bool AscendingOrder, bool buddyFilter, string apiKey) {
         IQueryable<Model.GameData> query = ctx.GameData
             .Where(x =>
-                x.GameId == gameId && x.IsMultiplayer == false &&
+                x.GameId == gameId && x.IsMultiplayer == isMultiplayer &&
                 x.Difficulty == difficulty && x.GameLevel == gameLevel &&
                 x.DatePlayed.Date == DateTime.UtcNow.Date);
 
@@ -155,22 +155,31 @@ public class GameDataService {
     }
 
     private void SavePairs(Model.GameData gameData, string xmlDocumentData) {
-        foreach (var pair in GetGameDataPairs(xmlDocumentData)) {
-            GameDataPair? dbPair = gameData.GameDataPairs.FirstOrDefault(x => x.Name == pair.Name);
+        foreach (var newPair in GetGameDataPairs(xmlDocumentData)) {
+            GameDataPair? existingPair = gameData.GameDataPairs.FirstOrDefault(x => x.Name == newPair.Name);
             
-            // If the score type is "time", use newBest <= existing (newest time is smaller than (or the same as) existing time).
-            // For anything else, use newBest > existing (newest score is larger than existing score).
-            bool newBest = (dbPair == null) || ((pair.Name == "time") != (dbPair.Value <= pair.Value));
+            bool addingNew = existingPair == null;
+            bool newBest, newBestDaily;
+            if (addingNew) { // No pair in database, true by default.
+                newBest = true;
+                newBestDaily = true;
+            } else if (newPair.Name == "time") { // Lower time is better.
+                newBest = newPair.Value < existingPair.Value;
+                newBestDaily = newBest || (newPair.DailyValue < existingPair.DailyValue);
+            } else { // Normal highscore treatment.
+                newBest = newPair.Value > existingPair.Value;
+                newBestDaily = newBest || (newPair.DailyValue > existingPair.DailyValue);
+            }
 
-            if (dbPair == null) {
-                gameData.GameDataPairs.Add(pair);
-                dbPair = pair;
-            } else if (newBest) dbPair.Value = pair.Value;
+            if (addingNew) {
+                gameData.GameDataPairs.Add(newPair);
+                existingPair = newPair;
+            } else if (newBest) existingPair.Value = newPair.Value;
             
-            if (
-                newBest || // Surpassed Score (or Unset)
+            if (!addingNew && ( // If it's a new entry, it's already the same.
+                newBestDaily || // Surpassed Score
                 gameData.DatePlayed.Date != DateTime.UtcNow.Date // Another Day
-            ) dbPair.DailyValue = pair.Value;
+            )) existingPair.DailyValue = newPair.Value;
         }
     }
 
